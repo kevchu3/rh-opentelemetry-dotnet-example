@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: telemetrygen
+spec:
+  template:
+    spec:
+      containers:
+        - name: telemetrygen
+          image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+          args:
+            - traces
+            - --otlp-endpoint=tempo-sample-distributor.observability.svc.cluster.local:4317
+            - --otlp-insecure
+            - --duration=30s
+            - --workers=1
+      restartPolicy: Never
+  backoffLimit: 4

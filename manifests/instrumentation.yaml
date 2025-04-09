@@ -1,0 +1,10 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: dotnet-instrumentation
+spec:
+  exporter:
+    endpoint: http://tempo-sample-distributor.observability.svc.cluster.local:4318
+  sampler:
+    type: always_on
+  dotnet:

@@ -1,0 +1,38 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: observability
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tempo-bucket
+  namespace: observability
+stringData:
+  endpoint: https://s3.<region>.amazonaws.com
+  bucket: *****
+  access_key_id: *****
+  access_key_secret: *****
+type: Opaque
+---
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoStack
+metadata:
+  name: sample
+  namespace: observability
+spec:
+  storageSize: 10Gi
+  storage:
+    secret:
+      name: tempo-bucket
+      type: s3
+    tls:
+      enabled: false
+  template:
+    queryFrontend:
+      jaegerQuery:
+        enabled: true
+        ingress:
+          route:
+            termination: edge
+          type: route
