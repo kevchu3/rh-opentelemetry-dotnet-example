@@ -31,6 +31,8 @@ spec:
   template:
     queryFrontend:
       jaegerQuery:
+        authentication:
+          enabled: true
         enabled: true
         ingress:
           route:

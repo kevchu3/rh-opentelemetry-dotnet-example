@@ -25,13 +25,21 @@ Install a central TempoStack instance using the [tempostack.yaml] manifest.  In 
 $ oc apply -f manifests/tempostack.yaml
 ```
 
+## Sidecar
+
+The application will send tracing data to a collector agent (sidecar) that offloads responsibility by sending the data to a storage backend, in our case, the central Grafana Tempo instance.  Deploy this sidecar with the [sidecar.yaml] manifest:
+
+```
+$ oc apply -f manifests/sidecar.yaml -n dotnet-project
+```
+
 ## Auto Instrumentation
 
 Instrumentation is the process of adding observability code to an application.  Auto instrumentation creates this tracing framework without significant code changes by automatically injecting and configuring auto-instrumentation libraries in a variety of supported languages.
 
 We'll start by deploying a sample .NET application.  From the OpenShift web console, navigate to the Developer Perspective, create a new project for the application (we'll use `dotnet-project` for this example).  Navigate to the Developer Catalog using `+Add`, select the Basic .NET catalog item, and press `Create`, which creates a deployment named `devfile-sample-dotnet-60-basic-git`.
 
-Now, we'll create an `Instrumentation` manifest ([instrumentation.yaml]) in the project that will be used by the OpenTelemetry operator.  Auto instrumentation of .NET sends data on port 4318 via the OTLP/HTTP protocol.
+Now, we'll create an `Instrumentation` custom resource defined in [instrumentation.yaml] in the project that will be used by the OpenTelemetry operator.  Auto instrumentation of .NET sends data on port 4318 via the OTLP/HTTP protocol.
 ```
 $ oc apply -f manifests/instrumentation.yaml -n dotnet-project
 ```
@@ -39,16 +47,20 @@ $ oc apply -f manifests/instrumentation.yaml -n dotnet-project
 We'll configure our application deployment with annotations for [.NET auto instrumentation] to enable injection and sidecar (see the following section):
 
 ```
-oc patch deployment devfile-sample-dotnet-60-basic-git -n dotnet-project --patch '{"spec": {"template": {"metadata": {"annotations": {"instrumentation.opentelemetry.io/inject-dotnet": "true"}}}}}'
-oc patch deployment devfile-sample-dotnet-60-basic-git -n dotnet-project --patch '{"spec": {"template": {"metadata": {"annotations": {"sidecar.opentelemetry.io/inject": "sidecar"}}}}}'
+$ oc edit deployment devfile-sample-dotnet-60-basic-git -n dotnet-project
+
+spec:
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-dotnet: "true"
+        sidecar.opentelemetry.io/inject: sidecar
 ```
 
-## Sidecar
-
-The application has been instrumented for OpenTelemetry, and now needs to send tracing data to a collector agent (sidecar) that offloads responsibility by sending the data to a storage backend, in our case, the central Grafana Tempo instance.  We'll deploy this sidecar with the [sidecar.yaml] manifest.
-
+The following commands can be run instead to perform the edits above:
 ```
-$ oc apply -f manifests/sidecar.yaml -n dotnet-project
+$ oc patch deployment devfile-sample-dotnet-60-basic-git -n dotnet-project --patch '{"spec": {"template": {"metadata": {"annotations": {"instrumentation.opentelemetry.io/inject-dotnet": "true"}}}}}'
+$ oc patch deployment devfile-sample-dotnet-60-basic-git -n dotnet-project --patch '{"spec": {"template": {"metadata": {"annotations": {"sidecar.opentelemetry.io/inject": "sidecar"}}}}}'
 ```
 
 ## Jaeger UI
@@ -58,7 +70,12 @@ The `TempoStack` resource we deployed provides a query frontend based on Jaeger 
 $ oc get route tempo-sample-query-frontend -n observability -o 'jsonpath={.spec.host}'
 ```
 
-Generate spans (a unit of work in Tempo that has an operation name, start time, duration, and tags) and traces (data/execution path through the system consisting of one or more spans) to Grafana Tempo by navigating to the .NET application's route and clicking around.  The spans and traces should now show up in Jaeger.
+If you are logging in with OpenShift RBAC and receive a 403 Permission Denied, add the following permissions:
+```
+$ oc adm policy add-role-to-user view <account name> -n observability
+```
+
+Now it is time to run our test traces.  Generate spans (a unit of work in Tempo that has an operation name, start time, duration, and tags) and traces (data/execution path through the system consisting of one or more spans) to Grafana Tempo by navigating to the .NET application's route and clicking around.  The spans and traces should now show up in Jaeger.
 
 If you are having difficulty generating data (perhaps some instructions above were misconfigured), you can create the following test job ([testjob.yaml]):
 ```
